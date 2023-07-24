@@ -6,12 +6,6 @@ from pydantic import BaseModel
 from typing import Any
 import uvicorn
 
-# Define el nombre de tu imagen Docker y los argumentos que quieres pasar
-# docker_image_name = "componente-v1.0"
-# script_path = "calculos.py"
-# args = "arg1 arg2 arg3"
-# url = "http://host.docker.internal:8080/results"
-# docker_command = f'docker run -e SCRIPT_PATH={script_path} -e ARGS="{args}" -e URL={url} {docker_image_name}'
 docker_image_name = "componente-v1.0"
 script_path = "calculos.py"
 args = "arg1 arg2 arg3"
@@ -27,24 +21,21 @@ class Item(BaseModel):
 async def run_docker(item: Item):
     print(docker_command)
     print(f'Sending subprocess to run... ')
-    # process = subprocess.run(docker_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,text=True)
-    process = subprocess.run(docker_command)
+    process = subprocess.Popen(docker_command)
+    print(f'Process started with PID: {process.pid}')
     print(f'Process: {process}')
     print(f' Process returncode: {process.returncode}')
-    # return {"status": process.returncode}
-    return {"status": 1000}
+    return {"status": process.returncode}
 
 @app.post("/results")
 async def receive_results(request: Request):
-    data = await request.json()
     data = await request.body()
     data = json.loads(data)
-
-    # Ahora "data" contiene los resultados que fueron enviados por el contenedor Docker
-    # Hacer algo con los datos...
+    print(f"Data received through /results by subprocess: {data}")
     return {"status": "ok"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
 
 

@@ -2,7 +2,7 @@
 
 
 def main():
-    print('{ "a" : 1 }')
+    print('{ "a" : 2 }')
 
 
 if __name__ == "__main__":

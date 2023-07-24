@@ -15,8 +15,6 @@ class Comando:
             text=True,
             check=True
         )
-        # response = subprocess.run(['python3', '../src/componente_v1/calculos.py', 'arg1', 'arg2', 'arg3'])
-
         resultado = json.loads(response.stdout)
         try:
             resultado = json.loads(response.stdout)
@@ -39,30 +37,20 @@ class Componente:
         print(f'RESULTADO {resultado}')
 
         headers = {"Content-Type": "application/json"}
-        # response = requests.post('http://host.docker.internal:8080/results') # TODO: Possiblement es queda aquí esperant la resposta infinitament
-        # response = requests.post(self.url, headers=headers, data=json.dumps(resultado))
-        # return response.status_code == 200
+        response = requests.post( 'http://host.docker.internal:8080/results', headers=headers, data=json.dumps(resultado), timeout=20)
+        print("Response from server:", response.text)
+        return 10
+
+    
 
 if __name__ == "__main__":
-    
-    print('0')
     script_path = os.getenv('SCRIPT_PATH')
     args = os.getenv('ARGS').split()  # asumimos que los argumentos están separados por espacios
     url = os.getenv('URL')
-    print('1')
-    # script_path = 'calculos.py'
-    # args = "1 2 3".split()
-    # url = ""
-
     comando = Comando(script_path, args)
-    print('2')
     componente = Componente(comando, url)
-    print('3')
     resultado = componente.gestionar()
-    print('4')
-    # print(f"Resultado: {resultado}")
-
-
+    print(f"Resultado: {resultado}")
 
 
 """En este código, hemos dividido las responsabilidades entre dos clases: Comando y Componente.
