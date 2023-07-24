@@ -18,7 +18,6 @@ class Comando:
                 text=True,
                 check=True
             )
-            # resultado = json.loads(response.stdout)
             return self._procesar_salida(response)
         except Exception as e:
             logging.error(f"Error al ejecutar el script: {e}")

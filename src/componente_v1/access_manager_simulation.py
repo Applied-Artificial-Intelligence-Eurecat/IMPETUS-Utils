@@ -19,7 +19,7 @@ class DockerProcess:
         docker_command = [
             "docker", "run", "-e",
             f"SCRIPT_PATH={command.script_path}",
-            "-e", f'ARGS="{command.arguments}"',
+            "-e", f'ARGS={command.arguments}',
             "-e", f'URL={RESULT_RETURN_URL}',
             DOCKER_IMAGE_NAME
         ]
@@ -42,6 +42,7 @@ async def run(command: DockerCommand, process: DockerProcess = Depends(DockerPro
 async def receive_results(request: Request) -> dict:
     data = await request.json()
     if data:
+        print(f"Script result: {data}")
         return {"status": "received", "data": data}
     else:
         raise HTTPException(status_code=400, detail="No data received")
