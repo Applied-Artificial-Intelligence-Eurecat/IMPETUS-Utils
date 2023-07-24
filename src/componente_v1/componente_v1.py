@@ -2,6 +2,8 @@ import os
 import subprocess
 import requests
 import json
+import logging
+
 
 class Comando:
     def __init__(self, script_path, args):
@@ -9,54 +11,66 @@ class Comando:
         self.args = args
 
     def ejecutar(self):
-        response = subprocess.run(
-            ["python3", self.script_path] + self.args,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        resultado = json.loads(response.stdout)
+        try:
+            response = subprocess.run(
+                ["python3", self.script_path] + self.args,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # resultado = json.loads(response.stdout)
+            return self._procesar_salida(response)
+        except Exception as e:
+            logging.error(f"Error al ejecutar el script: {e}")
+            raise
+    
+    def _procesar_salida(self, response):
         try:
             resultado = json.loads(response.stdout)
+            return resultado
         except json.JSONDecodeError:
-            resultado = str(response.stdout)
-        print(f"Resutlado: {resultado}")
-        return resultado
+                logging.warning("La salida del script no es JSON válido.")
+                return str(response.stdout)
+
 
 class Componente:
-    def __init__(self, comando, url):
+    def __init__(self, comando, url, timeout=20):
         self.comando = comando
         self.url = url
+        self.timeout = timeout
+
 
     def gestionar(self):
-        resultado = self.comando.ejecutar()
-        return self.enviar_a_access_manager(resultado)
+        try:
+            resultado = self.comando.ejecutar()
+            return self._enviar_a_access_manager(resultado)
+        except Exception as e:
+            logging.error(f"Error en la gestión: {e}")
+            raise
 
-    def enviar_a_access_manager(self, resultado):
-        print(f"URL: {self.url}")
-        print(f'RESULTADO {resultado}')
+    def _enviar_a_access_manager(self, resultado):
+        try:
+            headers = {"Content-Type": "application/json"}
+            response = requests.post(self.url, headers=headers, data=json.dumps(resultado), timeout=self.timeout)
+            return response.status_code
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Error al enviar los datos al Access Manager: {e}")
+            raise
 
-        headers = {"Content-Type": "application/json"}
-        response = requests.post( 'http://host.docker.internal:8080/results', headers=headers, data=json.dumps(resultado), timeout=20)
-        print("Response from server:", response.text)
-        return 10
-
-    
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     script_path = os.getenv('SCRIPT_PATH')
     args = os.getenv('ARGS').split()  # asumimos que los argumentos están separados por espacios
     url = os.getenv('URL')
+
     comando = Comando(script_path, args)
     componente = Componente(comando, url)
-    resultado = componente.gestionar()
-    print(f"Resultado: {resultado}")
 
+    try:
+        resultado = componente.gestionar()
+        logging.info(f"Resultado: {resultado}")
+    except Exception as e:
+        logging.error(f"Error en el programa principal: {e}")
 
-"""En este código, hemos dividido las responsabilidades entre dos clases: Comando y Componente.
-
-La clase Comando encapsula el script de Python que quieres ejecutar, junto con cualquier argumento necesario. Cuando se ejecuta el método ejecutar de Comando, se ejecuta el script y se recoge su salida.
-
-Por otro lado, la clase Componente es responsable de gestionar el proceso. Toma un objeto Comando y una URL como argumentos de su constructor. Cuando se ejecuta el método gestionar de Componente, ejecuta el comando, recoge su salida y la envía a la URL proporcionada.
-
-Este diseño tiene la ventaja de ser muy flexible. Puedes crear diferentes comandos y pasarlos a un Componente para su ejecución. De esta manera, puedes cambiar fácilmente lo que hace Componente simplemente pasándole diferentes comandos."""

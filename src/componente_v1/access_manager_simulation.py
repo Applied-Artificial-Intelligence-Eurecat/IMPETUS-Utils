@@ -1,38 +1,50 @@
 import subprocess
 import json
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Any
 import uvicorn
 
-docker_image_name = "componente-v1.0"
-script_path = "calculos.py"
-args = "arg1 arg2 arg3"
-url = "http://host.docker.internal:8080/results"
-docker_command = ["docker", "run", "-e", f"SCRIPT_PATH={script_path}", "-e", f'ARGS="{args}"', "-e", f'URL={url}', docker_image_name]
+DOCKER_IMAGE_NAME = "componente-v1.0"
+RESULT_RETURN_URL = "http://host.docker.internal:8080/results"
 
 app = FastAPI()
 
-class Item(BaseModel):
-    data: Any
+class DockerCommand(BaseModel):
+    script_path: str
+    arguments: str
 
-@app.post("/run")
-async def run_docker(item: Item):
-    print(docker_command)
-    print(f'Sending subprocess to run... ')
-    process = subprocess.Popen(docker_command)
-    print(f'Process started with PID: {process.pid}')
-    print(f'Process: {process}')
-    print(f' Process returncode: {process.returncode}')
-    return {"status": process.returncode}
+class DockerProcess:
+    def __init__(self, command: DockerCommand):
+        docker_command = [
+            "docker", "run", "-e",
+            f"SCRIPT_PATH={command.script_path}",
+            "-e", f'ARGS="{command.arguments}"',
+            "-e", f'URL={RESULT_RETURN_URL}',
+            DOCKER_IMAGE_NAME
+        ]
+        self.process = subprocess.Popen(docker_command)
 
-@app.post("/results")
-async def receive_results(request: Request):
-    data = await request.body()
-    data = json.loads(data)
-    print(f"Data received through /results by subprocess: {data}")
-    return {"status": "ok"}
+    def __enter__(self):
+        return self.process
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.process.kill()
+
+@app.post("/run", status_code=202)
+async def run(command: DockerCommand, process: DockerProcess = Depends(DockerProcess)) -> dict:
+    if process.process.returncode is None:
+        return {"status": "started", "PID": process.process.pid}
+    else:
+        raise HTTPException(status_code=500, detail=f"Error occurred. PID: {process.process.pid}, Error code: {process.process.returncode}")
+
+@app.post("/results", status_code=201)
+async def receive_results(request: Request) -> dict:
+    data = await request.json()
+    if data:
+        return {"status": "received", "data": data}
+    else:
+        raise HTTPException(status_code=400, detail="No data received")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
