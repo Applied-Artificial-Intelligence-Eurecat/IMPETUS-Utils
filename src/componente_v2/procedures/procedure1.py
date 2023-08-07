@@ -1,2 +1,6 @@
+import sys
 
-print('PROCEDURE 1 SAYS 1')
+
+print('{"procedure1_result": 2}', end="")
+
+sys.exit()
