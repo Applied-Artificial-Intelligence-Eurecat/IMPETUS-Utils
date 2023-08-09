@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 import argparse
 import os
 from datetime import datetime
+import sys
 
 # Clase base para cualquier método de limpieza de datos
 class DataCleaningMethod(ABC):

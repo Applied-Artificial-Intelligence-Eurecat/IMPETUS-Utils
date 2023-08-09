@@ -8,8 +8,9 @@ import json
 
 app = FastAPI()
 
-DEBUG = True
-SCRIPT_PATH = "app/procedures"
+DEBUG = False
+# SCRIPT_PATH = "app/procedures"
+SCRIPT_PATH = "procedures"
 SCRIPT_PATH_LOCAL = "procedures"
 
 
@@ -30,6 +31,9 @@ class Comando:
                 check=True
             )
             return self._procesar_salida(response)
+        except subprocess.CalledProcessError as e:
+            print(f"Command failed with error code {e.returncode}:\n{e.stderr}")
+            raise
         except Exception as e:
             # logging.error(f"Error al ejecutar el script: {e}")
             print(f"Error al ejecutar el script: {e}")
@@ -64,8 +68,8 @@ class Componente:
     def _enviar_a_access_manager(self, resultado):
         try:
             headers = {"Content-Type": "application/json"}
-            response = requests.post(self.url, headers=headers, data=json.dumps(resultado), timeout=self.timeout)
-            return response.status_code
+            # response = requests.post(self.url, headers=headers, data=json.dumps(resultado), timeout=self.timeout)
+            # return response.status_code
         except requests.exceptions.RequestException as e:
             # logging.error(f"Error al enviar los datos al Access Manager: {e}")
             print(f"Error al enviar los datos al Access Manager: {e}")
