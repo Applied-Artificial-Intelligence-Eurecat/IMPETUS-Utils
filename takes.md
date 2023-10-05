@@ -8,3 +8,7 @@ https://github.com/elisemercury/AutoClean/blob/main/AutoClean/autoclean.py
 https://www.frontiersin.org/articles/10.3389/fenrg.2021.652801/full
 https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9856663
 https://www.sciencedirect.com/science/article/pii/S2666285X22000565
+
+
+# SMS analytics Eurecat
+https://ice.eurecat.org/gitlab/sms/sms_analytics/-/tree/master/docs

@@ -1,0 +1,12 @@
+{
+  "data_source_type": "api",
+  "data_source": "https://data-manager.climate-impetus.eu/historical/v2/entities/urn:ngsi-ld:Impetus:measurementStation:A?fromDate=2023-06-01T09:30:00&toDate=2023-06-30T10:30:00&limit=5&offset=5",
+  "cleaning_methods": {
+    "conductivity": ["ZScoreOutlierRemoval"],
+    "temperature":["ZScoreOutlierRemoval"],
+    "depth": ["ZScoreOutlierRemoval"],
+    "location_coordinates": [],
+    "location_type": [],
+    "location_centroid": []
+  }
+}

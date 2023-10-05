@@ -1,0 +1,8 @@
+{
+  "data_source_type": "csv",
+  "data_source": "datasets/racha_max_manresa_2_columns.csv",
+  "cleaning_methods": {
+    "RachaMax": ["ZScoreOutlierRemoval"],
+    "RachaMaxCopy": ["ZScoreOutlierRemoval"]
+  }
+}

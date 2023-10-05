@@ -2,3 +2,4 @@
 .pytest_cache/*
 *__init__.py
 *__pycache__
+src/componente_v2/datasets/*.csv

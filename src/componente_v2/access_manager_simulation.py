@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
-import subprocess
 import requests
 import uvicorn
 import json
