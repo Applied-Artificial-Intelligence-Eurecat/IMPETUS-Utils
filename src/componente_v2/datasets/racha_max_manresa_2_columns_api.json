@@ -1,12 +1,15 @@
 {
   "data_source_type": "api",
-  "data_source": "https://data-manager.climate-impetus.eu/historical/v2/entities/urn:ngsi-ld:Impetus:measurementStation:A?fromDate=2023-06-01T09:30:00&toDate=2023-06-30T10:30:00&limit=5&offset=5",
+  "data_source": "https://data-manager.climate-impetus.eu/access/historical/entities",
+  "api_additional_info":{
+    "start_time":  "2011-01-14T00:00:00",
+    "end_time": "2023-01-20T00:00:00",
+    "entity_type": "windsensor",
+    "format": "COLUMN",
+    "origin": "DEVICE"}, 
+
   "cleaning_methods": {
-    "conductivity": ["ZScoreOutlierRemoval"],
-    "temperature":["ZScoreOutlierRemoval"],
-    "depth": ["ZScoreOutlierRemoval"],
-    "location_coordinates": [],
-    "location_type": [],
-    "location_centroid": []
+    "avg_speed": ["ZScoreOutlierRemoval"],
+    "max_wind_gust":["ZScoreOutlierRemoval"]
   }
 }

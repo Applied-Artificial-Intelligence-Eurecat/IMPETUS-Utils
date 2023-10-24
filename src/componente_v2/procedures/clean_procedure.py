@@ -10,6 +10,62 @@ import json
 import sys
 import requests
 
+def gen_payload(date, origin, avg_speed, max_wind_gust): 
+    date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ')
+    return [{
+        "id": "urn:ngsi-ld:Impetus:windSensor:Manresa",
+        "type": "WindSensor",
+        "observed_at": {
+            "type": "Property",
+            "value": date,
+            "observedAt": date,
+        },      
+        "origin": {
+            "type": "Property",
+            "value": origin,
+            "observedAt": date,
+        },
+        "avg_speed":{
+            "type": "Property",
+            "value": avg_speed*1.0,
+            "observedAt": date,
+        },
+        "max_wind_gust": {
+            "type": "Property",
+            "value": max_wind_gust*1.0,
+            "observedAt": date,
+        }        
+        ,"@context": ["https://data-manager.climate-impetus.eu/schemas/WindSensor/schema.jsonld"]
+    }]
+
+def send_data(data):
+    url_local = 'http://impetus-orion:1026/ngsi-ld/v1/entityOperations/upsert'
+    url_remote = 'https://data-manager.climate-impetus.eu/broker/ngsi-ld/v1/entityOperations/upsert'
+    response = requests.post(url=url_remote, headers={"content-type": "application/ld+json"},data=json.dumps(data))
+    print(response.status_code)
+    return response
+
+def parse_api_response_to_df(payload, origin):
+    root = payload['urn:ngsi-ld:Impetus:windSensor:Manresa']
+    column_names = [key for key in root.keys() if key not in ["date_observed", "entity_type", "origin"]]
+    df = pd.DataFrame(root)
+    df.date_observed = pd.to_datetime( df.date_observed, format="%Y-%m-%dT%H:%M:%S")
+    df = df.set_index( "date_observed", drop=True )
+    df = df[df.origin == origin ].drop(["entity_type","origin"], axis=1)
+    df = df[~df.index.duplicated( keep="last") ]
+    return df
+
+def generate_read_payload(url, start_time, end_time ):
+    params = {
+        'start_time': start_time,
+        'end_time': end_time,
+        'entity_type': 'windsensor',
+        'format': 'COLUMN'
+    }
+    headers = {'accept': 'application/json'}
+    response = requests.get(url, params=params, headers=headers)
+    return response 
+
 # Clase base para cualquier método de limpieza de datos
 class DataCleaningMethod(ABC):
 
@@ -38,21 +94,22 @@ class MeanImputation(DataCleaningMethod):
 # Clase de limpieza de datos que utiliza los métodos de limpieza definidos
 class DataCleaner:
 
-    def __init__(self, data_source_type, data_source):
+    def __init__(self, data_source_type, data_source, config):
         self.data_source_type = data_source_type
         if self.data_source_type == "csv":
             self.data_source = os.path.join(*data_source.split('/'))
         else:
             self.data_source = data_source
+            self.api_info = config['api_additional_info']
         
-        self.data = self.load_data()
+        self.load_data()
     
     def load_data(self):
         print("DATA SOURCE", self.data_source)
         if self.data_source_type == "csv":
             self.data = self.load_data_from_csv(self.data_source)
         elif self.data_source_type == "api":
-            self.data = self.load_data_from_api(self.data_source)
+            self.data = self.load_data_from_api(self.data_source, self.api_info)
         else:
             raise ValueError(f"Tipo de fuente de datos no reconocido: {self.data_source_type}")
         if self.data is None:
@@ -66,25 +123,18 @@ class DataCleaner:
             print(f"No se encontró el archivo en la ruta especificada: {file_path}")
             return None
 
-    def load_data_from_api(self, url):
-        """Carga los datos desde una API"""
-        headers = {"Fiware-Service": "Testing"}
-        response = requests.get(url=url, headers=headers)
+    def load_data_from_api(self, url, api_info):
+        response = generate_read_payload(url, api_info['start_time'], api_info['end_time'])
         if response.status_code != 200:
             print(f"Error al obtener datos de la API: {response.status_code}")
             return None
         data = response.json()
-        df = pd.DataFrame(index=pd.to_datetime(data['index']))
-        for attr in data['attributes']:
-            if isinstance(attr['values'][0], dict):
-                for key in attr['values'][0].keys():
-                    column_name = f"{attr['attrName']}_{key}"
-                    df[column_name] = [val[key] for val in attr['values']]
-            else:
-                df[attr['attrName']] = attr['values']
+        df = parse_api_response_to_df(data, api_info["origin"])
         return df
 
     def clean_data(self, cleaning_config):
+        print(self.data)
+        # sys.exit(0)
         print("CLEAN DATA")
         """Limpia los datos usando la configuración de limpieza proporcionada"""
         cleaning_methods = {
@@ -104,10 +154,26 @@ class DataCleaner:
                 base_name, ext = os.path.splitext(self.data_source)
                 output_path = f"{base_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             elif self.data_source_type == "api":
-                output_path = f"api_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                # output_path = f"api_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv" #TODO Save to api
+                self.send_data_through_api()
+                return 0
             else:
                 raise ValueError(f"Tipo de fuente de datos no reconocido: {self.data_source_type}")
         self.data.to_csv(output_path, index=True)
+    
+    def send_data_through_api(self ):
+        df_payload = self.data
+        date_list = df_payload.index.strftime('%Y-%m-%d %H:%M:%S')
+        max_wind_gust_list = df_payload.max_wind_gust.values
+        avg_speed_list = df_payload.avg_speed.values
+        payloads = [ gen_payload(date_list[i],"PROCESSED", avg_speed_list[i] ,max_wind_gust_list[i])[0] for i in range(len(date_list))]
+        print(len(date_list), " dates")
+        print(len(payloads),"payloads")
+
+        for payload in payloads:
+            print("sending...")
+            send_data([payload])
+
 
 # Uso de la clase
 if __name__ == "__main__":
@@ -120,12 +186,15 @@ if __name__ == "__main__":
     with open(args.cleaning_config, 'r') as f:
         cleaning_config = json.load(f)
 
+
     cleaner = DataCleaner(
         data_source_type=cleaning_config["data_source_type"],
-        data_source=cleaning_config["data_source"]
+        data_source=cleaning_config["data_source"],
+        config = cleaning_config
     )
 
-    cleaner.load_data()
+    # sys.exit(0)
+
     cleaner.clean_data(cleaning_config["cleaning_methods"])
     
     cleaner.save_clean_data(args.output_path) # TODO: Parametritzar
