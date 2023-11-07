@@ -8,8 +8,8 @@
     "format": "COLUMN",
     "origin": "DEVICE"}, 
 
-  "cleaning_methods": {
-    "avg_speed": ["ZScoreOutlierRemoval"],
-    "max_wind_gust":["ZScoreOutlierRemoval"]
+  "methods": {
+    "avg_speed": [ [["ZScoreOutlierMask", 2], ["ZeroMaskImputation"]], [["ZScoreOutlierMask", 2], ["ZeroMaskImputation"]] ],  
+    "max_wind_gust":[]
   }
 }

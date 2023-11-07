@@ -9,6 +9,7 @@ from datetime import datetime
 import json
 import sys
 import requests
+import functools
 
 def gen_payload(date, origin, avg_speed, max_wind_gust): 
     date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -66,30 +67,66 @@ def generate_read_payload(url, start_time, end_time ):
     response = requests.get(url, params=params, headers=headers)
     return response 
 
-# Clase base para cualquier método de limpieza de datos
+# Clase base para cualquier método de limpieza de datos. Recibe los datos y una máscara, aplica el algoritmo correctivo a los datos en función de la máscara.
 class DataCleaningMethod(ABC):
 
     @abstractmethod
-    def clean(self, data):
+    def clean(self, data, mask):
+        pass
+    
+
+#####################
+def find_duplicates(df):
+    return df
+ 
+def find_missing_dates(df):
+    df['DoY'] = df.index.dayofyear
+ 
+# pensar si aqui conve un drop duplicates, o el fem a un pre-processat bàsic a una altra funció, 
+# de manera que aquí li arriba tot net
+    df['timedelta'] =  (df.index - df.index.shift(1) )
+    min_timedelta = np.min(df['timedelta'])
+ 
+# Mirar què passa si min_timedelta == 0  (és a dir, si hi ha dates repetides) (pensar en drop_duplicates o similar)
+
+    all_dates = pd.date_range(start=df.index.iloc[0], end=df.index.iloc[-1], freq=min_timedelta)
+ 
+    missing_dates = list(set(df.index)^set(all_dates))
+    missing_dates.sort()
+    return missing_dates, all_dates   
+
+
+
+#####################
+
+# Clase base para cualquier método de generación de máscara. Recibe los datos y los procesa generando como resultado una máscara de la misma longitud que 
+# los datos y que está compuesta True y False.
+class MaskGeneratingMethod(ABC):
+
+    @abstractmethod
+    def generate_mask(self, data):
         pass
 
 # Implementación concreta para manejo de outliers
-class ZScoreOutlierRemoval(DataCleaningMethod):
+class ZScoreOutlierMask(MaskGeneratingMethod):
     
     def __init__(self, threshold=2):
         self.threshold = threshold
 
-    def clean(self, data):
+    def generate_mask(self, data):
         z_scores = np.abs(stats.zscore(data))
-        mask = (z_scores < self.threshold)
-        data_processed = data[mask]
-        return data_processed
+        mask = (z_scores > self.threshold)
+        return mask
 
 # Implementación concreta para manejo de valores perdidos
 class MeanImputation(DataCleaningMethod):
 
     def clean(self, data):
         return data.fillna(data.mean(), inplace=False)
+
+class ZeroMaskImputation(DataCleaningMethod):
+    def clean(self, data, mask):
+        return  np.where(mask, 0, data)
 
 # Clase de limpieza de datos que utiliza los métodos de limpieza definidos
 class DataCleaner:
@@ -102,7 +139,6 @@ class DataCleaner:
             self.data_source = data_source
             self.api_info = config['api_additional_info']
         
-        self.load_data()
     
     def load_data(self):
         print("DATA SOURCE", self.data_source)
@@ -133,19 +169,28 @@ class DataCleaner:
         return df
 
     def clean_data(self, cleaning_config):
-        print(self.data)
-        # sys.exit(0)
-        print("CLEAN DATA")
         """Limpia los datos usando la configuración de limpieza proporcionada"""
         cleaning_methods = {
-            "ZScoreOutlierRemoval": ZScoreOutlierRemoval(threshold=3),
-            "MeanImputation": MeanImputation()
+            "MeanImputation": MeanImputation,
+            "ZScoreOutlierMask": ZScoreOutlierMask,
+            "ZeroMaskImputation": ZeroMaskImputation
         }
-        print("data", self.data)
+        print(len(cleaning_config), cleaning_config.items())
+        for column, list_of_joint_methods in cleaning_config.items():
+            for joint_methods in list_of_joint_methods:
+                if len(joint_methods) == 1:
+                    self.data[column] = cleaning_methods[joint_methods[0]].clean(self.data[[column]])
+                if len(joint_methods) == 2:
+                    print(joint_methods)
+                    mask_name, *mask_args = joint_methods[0]
+                    imputation_name, *imputation_args = joint_methods[1]
+                    mask = cleaning_methods[mask_name](*mask_args).generate_mask(self.data[[column]])
+                    self.data[column] = cleaning_methods[imputation_name](*imputation_args).clean(self.data[[column]], mask)
+                elif len(joint_methods) != 0:
+                    raise ValueError("Maximum of 2 methods has been exceeded")
+                
 
-        for column, methods in cleaning_config.items():
-            for cleaning_method in methods:
-                self.data[column] = cleaning_methods[cleaning_method].clean(self.data[[column]])
+
 
     def save_clean_data(self, output_path):
         """Guarda los datos limpios en la ruta especificada"""
@@ -180,24 +225,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Clean a dataset.')
     parser.add_argument('cleaning_config', type=str, help='Path al archivo JSON con la configuración de limpieza de datos')
     parser.add_argument('--output_path', type=str, help='Path donde se guardarán los datos limpios (opcional)')
-
     args = parser.parse_args()
     
     with open(args.cleaning_config, 'r') as f:
         cleaning_config = json.load(f)
-
 
     cleaner = DataCleaner(
         data_source_type=cleaning_config["data_source_type"],
         data_source=cleaning_config["data_source"],
         config = cleaning_config
     )
-
-    # sys.exit(0)
-
-    cleaner.clean_data(cleaning_config["cleaning_methods"])
-    
+    cleaner.load_data()
+    cleaner.clean_data(cleaning_config["methods"])
     cleaner.save_clean_data(args.output_path) # TODO: Parametritzar
-    sys.exit(0)
 
-    # TODO Tots els prints/logs han de ser en format JSON, perquè es puguin interpretar per la crida
+    sys.exit(0)
