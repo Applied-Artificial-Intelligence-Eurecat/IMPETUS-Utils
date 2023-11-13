@@ -9,7 +9,6 @@
     "origin": "DEVICE"}, 
 
   "methods": {
-    "avg_speed": [ [["ZScoreOutlierMask", 2], ["ZeroMaskImputation"]], [["ZScoreOutlierMask", 2], ["ZeroMaskImputation"]] ],  
-    "max_wind_gust":[]
+    "max_wind_gust": [ [["ZScoreOutlierMask", 2], ["MeanMaskImputation"]] ]
   }
 }

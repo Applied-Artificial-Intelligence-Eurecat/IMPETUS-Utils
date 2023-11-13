@@ -46,6 +46,13 @@ def send_data(data):
     print(response.status_code)
     return response
 
+def send_data_with_session(data, session):
+    url_local = 'http://impetus-orion:1026/ngsi-ld/v1/entityOperations/upsert'
+    url_remote = 'https://data-manager.climate-impetus.eu/broker/ngsi-ld/v1/entityOperations/upsert'
+    response = session.post(url=url_remote, headers={"content-type": "application/ld+json"},data=json.dumps(data))
+    print(response.status_code)
+    return response
+
 def parse_api_response_to_df(payload, origin):
     root = payload['urn:ngsi-ld:Impetus:windSensor:Manresa']
     column_names = [key for key in root.keys() if key not in ["date_observed", "entity_type", "origin"]]
@@ -67,12 +74,6 @@ def generate_read_payload(url, start_time, end_time ):
     response = requests.get(url, params=params, headers=headers)
     return response 
 
-# Clase base para cualquier método de limpieza de datos. Recibe los datos y una máscara, aplica el algoritmo correctivo a los datos en función de la máscara.
-class DataCleaningMethod(ABC):
-
-    @abstractmethod
-    def clean(self, data, mask):
-        pass
     
 
 #####################
@@ -94,21 +95,42 @@ def find_missing_dates(df):
     missing_dates = list(set(df.index)^set(all_dates))
     missing_dates.sort()
     return missing_dates, all_dates   
-
-
-
 #####################
 
-# Clase base para cualquier método de generación de máscara. Recibe los datos y los procesa generando como resultado una máscara de la misma longitud que 
-# los datos y que está compuesta True y False.
-class MaskGeneratingMethod(ABC):
+# Clase base para cualquier método de limpieza de datos. Recibe los datos y una máscara, aplica el algoritmo correctivo a los datos en función de la máscara.
+class MaskImputatorMethod(ABC):
+
+    @abstractmethod
+    def clean(self, data, mask):
+        pass
+
+class MaskGeneratorMethod(ABC):
 
     @abstractmethod
     def generate_mask(self, data):
         pass
 
+class TransformationMethod(ABC):
+
+    @abstractmethod
+    def transform(self, data):
+        pass
+
+class LogTransformation(TransformationMethod):
+
+    def transform(self, data):
+        data[data <= 0] = np.nan
+        data = np.log(data)
+        return data
+
+class ZeroToMeanTransformation(TransformationMethod):
+
+    def transform(self, data):
+        mean_non_zero = data[data != 0].mean().iloc[0]
+        data = data.replace(0, mean_non_zero)
+        return data
 # Implementación concreta para manejo de outliers
-class ZScoreOutlierMask(MaskGeneratingMethod):
+class ZScoreOutlierMask(MaskGeneratorMethod):
     
     def __init__(self, threshold=2):
         self.threshold = threshold
@@ -118,13 +140,13 @@ class ZScoreOutlierMask(MaskGeneratingMethod):
         mask = (z_scores > self.threshold)
         return mask
 
-# Implementación concreta para manejo de valores perdidos
-class MeanImputation(DataCleaningMethod):
 
-    def clean(self, data):
-        return data.fillna(data.mean(), inplace=False)
+class MeanMaskImputation(MaskImputatorMethod):
+    def clean(self, data, mask):
+        # return data.fillna(data.mean(), inplace=False)
+        return  np.where(mask, data.mean(), data)
 
-class ZeroMaskImputation(DataCleaningMethod):
+class ZeroMaskImputation(MaskImputatorMethod):
     def clean(self, data, mask):
         return  np.where(mask, 0, data)
 
@@ -171,9 +193,11 @@ class DataCleaner:
     def clean_data(self, cleaning_config):
         """Limpia los datos usando la configuración de limpieza proporcionada"""
         cleaning_methods = {
-            "MeanImputation": MeanImputation,
+            "MeanMaskImputation": MeanMaskImputation,
             "ZScoreOutlierMask": ZScoreOutlierMask,
-            "ZeroMaskImputation": ZeroMaskImputation
+            "ZeroToMeanTransformation": ZeroToMeanTransformation,
+            "ZeroMaskImputation": ZeroMaskImputation,
+            "LogTransformation": LogTransformation
         }
         print(len(cleaning_config), cleaning_config.items())
         for column, list_of_joint_methods in cleaning_config.items():
@@ -215,9 +239,10 @@ class DataCleaner:
         print(len(date_list), " dates")
         print(len(payloads),"payloads")
 
-        for payload in payloads:
-            print("sending...")
-            send_data([payload])
+        with requests.Session() as session:
+            for payload in payloads:
+                print("sending...")
+                send_data_with_session([payload], session)
 
 
 # Uso de la clase
