@@ -4,11 +4,12 @@
   "api_additional_info":{
     "start_time":  "2011-01-14T00:00:00",
     "end_time": "2023-01-20T00:00:00",
-    "entity_type": "WindSensoaasd",
+    "entity_type": "WindSensor",
     "format": "COLUMN",
     "origin": "DEVICE"}, 
 
   "methods": {
-    "max_wind_gust": [ [["ZScoreOutlierMask", 2], ["MeanMaskImputation"]] ]
+    "max_wind_gust": [ [["ZScoreOutlierMask", 3], ["MeanMaskImputation"]], ["LogTransformation"] ],
+    "avg_speed": [ [["ZScoreOutlierMask", 2], ["ZeroMaskImputation"]] ]
   }
 }

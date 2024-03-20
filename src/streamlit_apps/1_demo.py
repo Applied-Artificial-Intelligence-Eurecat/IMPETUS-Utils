@@ -261,8 +261,13 @@ def data_retrieval_logic():
             "origin": "DEVICE"}, 
         
         "methods": {
-            # "avg_speed": [ [["ZScoreOutlierMask", 2], ["ZeroMaskImputation"]] ],  
-            "max_wind_gust": [ [["ZScoreOutlierMask", 1], ["MeanMaskImputation"]] ],  
+            # "avg_speed": [ [["ZScoreOutlierMask", 2], ["MeanMaskImputation"]] ],  
+            # "max_wind_gust": [ [["ZScoreOutlierMask", 2], ["MeanMaskImputation"]] ],  
+            # "max_wind_gust": [ [["ZeroToMeanTransformation"]], [["LogTransformation"]]],  
+            # "avg_speed": [ [["ZeroToMeanTransformation"]], ],  
+            # "max_wind_gust": [ [["ZeroToMeanTransformation"]], ],  
+            "avg_speed": [ [["ZeroToMeanTransformation"]], [["ZScoreOutlierMask", 2], ["MeanMaskImputation"]] ],  
+            "max_wind_gust": [ [["ZeroToMeanTransformation"]], [["ZScoreOutlierMask", 2], ["MeanMaskImputation"]] ],  
             }
     }
 
@@ -271,7 +276,7 @@ def data_retrieval_logic():
     
     # config_file["api_additional_info"]["start_time"] = st.session_state.start_time   # TODO
     # config_file["api_additional_info"]["end_time"] = st.session_state.end_time       # TODO
-    config_file["methods"] = st.session_state.methods                                # TODO Uncomment 3 above to un-hardcode
+    # config_file["methods"] = st.session_state.methods                                # TODO Uncomment 3 above to un-hardcode
     st.session_state.config_file = config_file
     
     st.write(config_file)
@@ -371,9 +376,9 @@ def send_clean_data_back_and_plot_new_logic():
     st.header("raw data vs \"PROCESSED\" data")
     st.write("*If a column has not been transformed within this session, the comparison will be between raw data and an already processed state stored in the database.")
     for variable in variable_options:
-        raw_column_data = df_response[variable]
-        processed_column_data = st.session_state.data_pre_clean[variable].copy()
-
+        processed_column_data = df_response[variable]
+        raw_column_data = st.session_state.data_pre_clean[variable].copy()
+        
         raw_trace = go.Scatter( x=raw_column_data.index, y=raw_column_data, mode='lines', name=f'Raw {variable}', line=dict(color='blue'))
         processed_trace = go.Scatter( x=processed_column_data.index, y=processed_column_data, mode='lines', name=f'Processed {variable}', line=dict(color='red'))
         fig = go.Figure()

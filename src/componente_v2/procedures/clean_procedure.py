@@ -76,27 +76,6 @@ def generate_read_payload(url, start_time, end_time ):
 
     
 
-#####################
-def find_duplicates(df):
-    return df
- 
-def find_missing_dates(df):
-    df['DoY'] = df.index.dayofyear
- 
-# pensar si aqui conve un drop duplicates, o el fem a un pre-processat bàsic a una altra funció, 
-# de manera que aquí li arriba tot net
-    df['timedelta'] =  (df.index - df.index.shift(1) )
-    min_timedelta = np.min(df['timedelta'])
- 
-# Mirar què passa si min_timedelta == 0  (és a dir, si hi ha dates repetides) (pensar en drop_duplicates o similar)
-
-    all_dates = pd.date_range(start=df.index.iloc[0], end=df.index.iloc[-1], freq=min_timedelta)
- 
-    missing_dates = list(set(df.index)^set(all_dates))
-    missing_dates.sort()
-    return missing_dates, all_dates   
-#####################
-
 # Clase base para cualquier método de limpieza de datos. Recibe los datos y una máscara, aplica el algoritmo correctivo a los datos en función de la máscara.
 class MaskImputatorMethod(ABC):
 
@@ -140,10 +119,18 @@ class ZScoreOutlierMask(MaskGeneratorMethod):
         mask = (z_scores > self.threshold)
         return mask
 
+class LOFOutlierMask(MaskGeneratorMethod):
+
+    # TODO: To implement 
+    def __init__(self):
+        pass
+
+    def generate_mask(self, data):
+        pass
+        # return mask
 
 class MeanMaskImputation(MaskImputatorMethod):
     def clean(self, data, mask):
-        # return data.fillna(data.mean(), inplace=False)
         return  np.where(mask, data.mean(), data)
 
 class ZeroMaskImputation(MaskImputatorMethod):
@@ -213,7 +200,6 @@ class DataCleaner:
                 elif len(joint_methods) != 0:
                     raise ValueError("Maximum of 2 methods has been exceeded")
                 
-
 
 
     def save_clean_data(self, output_path):
