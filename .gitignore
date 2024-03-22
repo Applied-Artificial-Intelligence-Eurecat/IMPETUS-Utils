@@ -3,3 +3,7 @@
 *__init__.py
 *__pycache__
 src/componente_v2/datasets/*.csv
+data/*
+assets/*
+server_user_id.txt
+takes.md
