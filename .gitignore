@@ -303,3 +303,13 @@ tags
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm+all,visualstudiocode,vim,python,jupyternotebooks
+
+.vscode/*
+.pytest_cache/*
+*__init__.py
+*__pycache__
+src/componente_v2/datasets/*.csv
+data/*
+assets/*
+server_user_id.txt
+takes.md
