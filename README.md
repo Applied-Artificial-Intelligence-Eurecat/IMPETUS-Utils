@@ -103,4 +103,4 @@ If the project requires versioning, it may be convenient to summarize changes af
 
 -----------------------
 
-Copyright 2018 Eurecat
+Copyright 2024 Eurecat
